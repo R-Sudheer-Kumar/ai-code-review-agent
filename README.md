@@ -88,3 +88,22 @@ new file mode 100644
 +        return total_spend / 0
 +    return total_spend / tier
 ```
+
+
+### Output Images
+
+<img width="831" height="748" alt="image" src="https://github.com/user-attachments/assets/feb77a0f-d39e-46d5-99e2-44f0dc541d69" />
+
+<img width="1917" height="1076" alt="image" src="https://github.com/user-attachments/assets/0b4da4f5-7b41-40f4-998c-b92dfe2c7b98" />
+
+<img width="1917" height="1078" alt="image" src="https://github.com/user-attachments/assets/8d4d2140-ed2a-4b60-92d4-9ea16a6ca165" />
+
+<img width="1916" height="1078" alt="image" src="https://github.com/user-attachments/assets/8ca991aa-9a28-4311-9b83-ce4b7a6f778b" />
+
+
+
+
+
+
+
+
