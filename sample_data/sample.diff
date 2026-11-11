@@ -1,0 +1,36 @@
+diff --git a/backend/user_service.py b/backend/user_service.py
+new file mode 100644
+--- /dev/null
++++ b/backend/user_service.py
+@@ -0,0 +1,32 @@
++from os import *
++import sqlite3
++
++API_KEY = "demo_dummy_secret_key_9948271638"
++
++def get_user_by_username(db, username):
++    cursor = db.cursor()
++    # SQL Injection risk via string formatting
++    query = f"SELECT * FROM users WHERE username = '{username}'"
++    cursor.execute(query)
++    return cursor.fetchone()
++
++def compute_discount_rate(total_spend, tier):
++    if tier == 0:
++        # Definite zero division bug
++        return total_spend / 0
++    return total_spend / tier
++
++def dynamic_calc(expr):
++    # Insecure eval
++    return eval(expr)
++
++def save_user_profile(user_id, data):
++    try:
++        db_save(user_id, data)
++    except:
++        pass
++
++def calculate_loyalty_points(user_id, spend):
++    breakpoint()
++    return spend * 1.5

@@ -1,0 +1,27 @@
+diff --git a/backend/health.py b/backend/health.py
+new file mode 100644
+--- /dev/null
++++ b/backend/health.py
+@@ -0,0 +1,12 @@
++from typing import Dict
++
++def get_system_status() -> Dict[str, str]:
++    """
++    Return current application status.
++    """
++    return {
++        "status": "healthy",
++        "version": "1.0.0",
++    }
++
+diff --git a/tests/test_health.py b/tests/test_health.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_health.py
+@@ -0,0 +1,7 @@
++from backend.health import get_system_status
++
++def test_get_system_status():
++    status = get_system_status()
++    assert status["status"] == "healthy"
++    assert status["version"] == "1.0.0"

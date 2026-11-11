@@ -1,58 +1,90 @@
-# AI Code Review Agent
+# 🛡️ AI Code Review Agent
 
 ## 1. What It Does
 
-AI Code Review Agent is a tool-using AI application that reviews Git diffs and identifies potential bugs, security risks, performance issues, missing test cases, and coding style problems.
+AI Code Review Agent is a tool-using AI application that reviews Git diffs or local repository commits and identifies potential bugs, security risks, performance issues, missing test cases, and coding style problems.
 
-It retrieves changed code and relevant context, analyzes the changes using an LLM, and generates structured feedback with severity levels, explanations, and suggested fixes.
+It retrieves changed code and relevant context, isolates untrusted inputs against prompt injection, analyzes the changes using **Google Gemini**, local **Ollama (`Qwen2.5-Coder`)**, or a deterministic offline static analysis fallback engine, and generates structured, Pydantic-validated feedback with severity levels, line citations, recommendations, and suggested fixes.
 
 ## 2. How I Built It
 
 **Technology Stack**
-- Python and FastAPI for the backend.
-- Streamlit for the user interface.
-- Ollama with Qwen2.5-Coder for local LLM inference.
-- Pydantic for structured output validation.
-- Git CLI and Python subprocess for retrieving code changes.
-- Pytest for testing.
+- **Python 3.12** and **FastAPI** (`src/api/main.py`) for the backend REST API (`/health`, `/review/diff`, `/review/repository`).
+- **Streamlit** (`src/frontend/app.py`) for the interactive user interface.
+- **Google Gemini** (`google-genai` SDK: `gemini-3-flash-preview` / `gemini-3-pro-preview`) and **Ollama** (`qwen2.5-coder:latest`) with a deterministic **Offline Static Heuristic Engine** fallback.
+- **Pydantic v2** (`src/models/schemas.py`) for structured output validation and automatic category/severity counting.
+- **Git CLI** via Python `subprocess` (`src/tools/git_tools.py`) for retrieving code changes.
+- **Pytest** (`tests/`) for automated testing (30 unit & integration tests).
 
-**Agent Workflow**
-
-1. Retrieve Git diff using a custom Git tool.
-2. Identify changed files.
-3. Retrieve relevant source code and tests.
-4. Send the collected context to the LLM.
-5. Generate structured review findings.
-6. Validate and display the results.
+**Agent Workflow (Deterministic Orchestrator)**
+1. **Retrieve Git diff**: `get_git_diff(repo_path, base_ref, head_ref)` safely executes `git diff` via subprocess.
+2. **Identify changed files**: `get_changed_files(diff)` parses unified diff headers, added lines, and hunk ranges.
+3. **Retrieve relevant context**: `get_file_context(repo_path, changed_files)` fetches bounded source context and auto-discovers related test files.
+4. **Analyze with LLM / Fallback**: Sends XML-delimited context (`<git_diff>`, `<file_context>`) to Gemini or Ollama, or falls back to `MockStaticAnalyzer` when offline.
+5. **Parse & Validate**: Extracts JSON, validates against `CodeReviewResult`, and runs `validate_review(review, diff)` to verify file paths, line ranges, and recommendation logic.
+6. **Display Results**: Renders severity distribution, category filters, line citations, and code fixes in Streamlit.
 
 ## 3. Challenges and How I Handled Them
 
-- **Inconsistent LLM responses:** Used structured prompts and Pydantic validation.
-- **Large code changes:** Limited the diff and relevant context passed to the model.
-- **Incorrect findings:** Included instructions to distinguish potential risks from confirmed issues and provide evidence.
-- **Git errors:** Added validation for repository paths, references, and empty diffs.
+- **Inconsistent / Malformed LLM responses:** Used strict JSON-mode prompting, regex fence extraction (`extract_json_payload`), and Pydantic validation with field auto-correction.
+- **Offline / Missing Model Environments:** Added a deterministic AST/regex fallback engine (`MockStaticAnalyzer`) so the demo and API run cleanly even when Ollama is offline or no API key is provided.
+- **Prompt Injection in Diffs:** Wrapped diff and file context inside `<git_diff>` / `<file_context>` XML boundaries with explicit untrusted-data system instructions.
+- **Hallucinated Files or Incorrect Recommendations:** Built `validate_review(review, diff)` to penalize unverified file citations and override unsafe `approve` decisions when critical/high bugs exist.
+- **Git Errors & Path Traversal:** Added strict ref character checks, `--show-toplevel` repo validation, empty diff guards, oversized diff truncation, and path traversal checks.
 
 ## 4. What I Would Improve Next
 
-- Integrate directly with GitHub Pull Requests.
-- Add automated test execution and static analysis.
-- Improve code context retrieval.
-- Support multiple programming languages.
-- Add review history and feedback-based evaluation.
-- Introduce severity-based filtering and configurable review rules.
+- Integrate directly with GitHub Pull Requests via GitHub Actions / REST API inline comments.
+- Add multi-turn automated patch generation so developers can apply suggested fixes directly.
+- Integrate `tree-sitter` for deeper cross-file AST symbol resolution.
+- Support configurable rule profiles and review history persistence.
 
 ## 5. Running Locally
 
-Install dependencies, start Ollama and download the configured model.
+### Setup
+```bash
+pip install -r requirements.txt
+```
+- **Using Google Gemini**: Set `GEMINI_API_KEY` in `.env` (see `.env.example`) or paste your key directly into the Streamlit sidebar.
+- **Using Local Ollama**: Run `ollama pull qwen2.5-coder` and `ollama serve`.
 
-Start the backend:
+### Start the Backend
+```bash
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-`uvicorn backend.main:app --reload`
+### Start the Frontend
+```bash
+python -m streamlit run src/frontend/app.py
+```
 
-Start the frontend:
+### Run CLI Demo & Tests
+```bash
+# Quick terminal demo against sample diff and synthetic buggy git repo
+python demo.py
 
-`streamlit run frontend/app.py`
+# Run all 30 Pytest tests
+python -m pytest tests -v
+```
 
-Run tests:
-
-`pytest -v`
+### Sample Diff for Demonstration
+Paste [`sample_data/sample.diff`](sample_data/sample.diff) or click **📥 Load Buggy Sample Diff** in the Streamlit UI:
+```diff
+diff --git a/backend/user_service.py b/backend/user_service.py
+new file mode 100644
+--- /dev/null
++++ b/backend/user_service.py
+@@ -0,0 +1,16 @@
++API_KEY = "demo_dummy_secret_key_9948271638"
++
++def get_user_by_username(db, username):
++    cursor = db.cursor()
++    query = f"SELECT * FROM users WHERE username = '{username}'"
++    cursor.execute(query)
++    return cursor.fetchone()
++
++def compute_discount_rate(total_spend, tier):
++    if tier == 0:
++        return total_spend / 0
++    return total_spend / tier
+```
